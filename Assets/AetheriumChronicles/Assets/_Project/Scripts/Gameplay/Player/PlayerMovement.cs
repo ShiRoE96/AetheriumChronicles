@@ -8,40 +8,48 @@ public class PlayerMovement : MonoBehaviour
     private PlayerInputActions playerInputActions;
     private Vector2 moveInput;
     private Animator anim;
-    // Se eliminó: private SpriteRenderer spriteRenderer;
+    private bool isFacingRight = true;
 
     [Header("Jump Settings")]
     public float jumpForce = 7f;
+    public float sprintJumpForce = 10f; // Variable para salto con sprint
 
     [Header("Ground Check Settings")]
     public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
-
     private bool isGrounded;
-    private bool isFacingRight = true; // Asumimos que el personaje empieza mirando a la derecha
+
+    [Header("Sprint Settings")]
+    public float sprintSpeed = 8f;
+    private bool sprintKeyHeld = false;
 
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         anim = GetComponent<Animator>();
-        // Se eliminó: spriteRenderer = GetComponent<SpriteRenderer>();
 
         playerInputActions = new PlayerInputActions();
 
         playerInputActions.PlayerControls.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         playerInputActions.PlayerControls.Move.canceled += ctx => moveInput = Vector2.zero;
         playerInputActions.PlayerControls.Jump.performed += JumpInputPerformed;
+        playerInputActions.PlayerControls.Sprint.performed += ctx => sprintKeyHeld = true;
+        playerInputActions.PlayerControls.Sprint.canceled += ctx => sprintKeyHeld = false;
     }
 
     private void JumpInputPerformed(InputAction.CallbackContext context)
     {
         if (isGrounded)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+            bool isAttemptingSprintWhileMoving = sprintKeyHeld && (Mathf.Abs(moveInput.x) > 0.01f);
+            float currentAppliedJumpForce = isAttemptingSprintWhileMoving ? sprintJumpForce : jumpForce;
+
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, currentAppliedJumpForce);
+
             if (anim != null)
             {
-                // Comenta esto si no tienes el parámetro "Jump" en el Animator
+                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator.
                 // anim.SetTrigger("Jump"); 
             }
         }
@@ -65,28 +73,36 @@ public class PlayerMovement : MonoBehaviour
         else
             isGrounded = false;
 
-        // Animation parameter for IsRunning
+        // Determine movement states
+        bool isCurrentlyMovingHorizontally = Mathf.Abs(moveInput.x) > 0.01f;
+        bool isCurrentlySprinting = sprintKeyHeld && isCurrentlyMovingHorizontally;
+        bool isCurrentlyWalking = isCurrentlyMovingHorizontally && !isCurrentlySprinting;
+
+        // Animation parameters
         if (anim != null)
         {
-            anim.SetBool("IsRunning", Mathf.Abs(moveInput.x) > 0.01f);
-            // Comenta esto si no tienes el parámetro "IsGrounded" en el Animator
+            anim.SetBool("IsWalking", isCurrentlyWalking);
+            anim.SetBool("IsSprinting", isCurrentlySprinting);
+            // Comenta la siguiente línea si no tienes un parámetro Bool "IsGrounded" en tu Animator.
             // anim.SetBool("IsGrounded", isGrounded);
         }
 
-        // Sprite flipping by changing localScale.x
-        if (moveInput.x > 0.01f && !isFacingRight)
-        {
-            Flip();
-        }
-        else if (moveInput.x < -0.01f && isFacingRight)
-        {
-            Flip();
-        }
+        // Sprite flipping
+        if (moveInput.x > 0.01f && !isFacingRight) Flip();
+        else if (moveInput.x < -0.01f && isFacingRight) Flip();
 
         // Movement
         if (rb != null)
         {
-            rb.linearVelocity = new Vector2(moveInput.x * moveSpeed, rb.linearVelocity.y);
+            float currentSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
+            if (!isCurrentlyMovingHorizontally)
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(moveInput.x * currentSpeed, rb.linearVelocity.y);
+            }
         }
     }
 
