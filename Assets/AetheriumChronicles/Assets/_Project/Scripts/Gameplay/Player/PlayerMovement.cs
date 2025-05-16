@@ -51,6 +51,8 @@ public class PlayerMovement : MonoBehaviour
 
         playerInputActions.PlayerControls.Sprint.performed += ctx => sprintKeyHeld = true;
         playerInputActions.PlayerControls.Sprint.canceled += ctx => sprintKeyHeld = false;
+
+        playerInputActions.PlayerControls.Attack.performed += AttackInputPerformed; // Nueva suscripción
     }
 
     private void JumpInputPerformed(InputAction.CallbackContext context)
@@ -67,6 +69,14 @@ public class PlayerMovement : MonoBehaviour
                 rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * 0.5f);
             }
             isJumping = false;
+        }
+    }
+
+    private void AttackInputPerformed(InputAction.CallbackContext context) // Nuevo método
+    {
+        if (anim != null)
+        {
+            anim.SetTrigger("Attack");
         }
     }
 
@@ -113,6 +123,7 @@ public class PlayerMovement : MonoBehaviour
             coyoteTimeCounter = 0f;
             if (anim != null)
             {
+                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator para la animación de salto.
                 // anim.SetTrigger("Jump"); 
             }
         }
@@ -127,6 +138,7 @@ public class PlayerMovement : MonoBehaviour
         {
             anim.SetBool("IsWalking", isCurrentlyWalking);
             anim.SetBool("IsSprinting", isCurrentlySprinting);
+            // Comenta la siguiente línea si no tienes un parámetro Bool "IsGrounded" en tu Animator.
             // anim.SetBool("IsGrounded", isGrounded);
         }
 
