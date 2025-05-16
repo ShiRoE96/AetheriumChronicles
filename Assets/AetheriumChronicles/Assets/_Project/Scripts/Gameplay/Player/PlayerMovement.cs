@@ -78,7 +78,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void AttackInputPerformed(InputAction.CallbackContext context)
     {
-        // Ahora solo se puede atacar si está en el suelo Y no está ya atacando
         if (isGrounded && anim != null && !isAttacking)
         {
             anim.SetTrigger("Attack");
@@ -88,19 +87,26 @@ public class PlayerMovement : MonoBehaviour
 
     public void EnableAttackHitbox()
     {
-        if (attackHitbox != null) attackHitbox.SetActive(true);
+        if (attackHitbox != null)
+        {
+            attackHitbox.SetActive(true);
+            Debug.Log("EVENTO: AttackHitbox HABILITADO en frame: " + Time.frameCount);
+        }
     }
 
     public void DisableAttackHitbox()
     {
-        if (attackHitbox != null) attackHitbox.SetActive(false);
+        if (attackHitbox != null)
+        {
+            attackHitbox.SetActive(false);
+            Debug.Log("EVENTO: AttackHitbox DESHABILITADO en frame: " + Time.frameCount);
+        }
     }
 
     public void FinishAttack()
     {
         isAttacking = false;
-        // Mantengo el Debug.Log por si aún lo necesitas, puedes borrarlo si ya no.
-        Debug.Log("FinishAttack() llamado en frame: " + Time.frameCount + ". isAttacking ahora es: " + isAttacking);
+        // Debug.Log("FinishAttack() llamado en frame: " + Time.frameCount + ". isAttacking ahora es: " + isAttacking);
     }
 
     void OnEnable()
