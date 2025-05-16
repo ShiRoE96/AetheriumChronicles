@@ -12,13 +12,22 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Jump Settings")]
     public float jumpForce = 7f;
-    public float sprintJumpForce = 10f; // Variable para salto con sprint
+    public float sprintJumpForce = 10f;
+    private bool isJumping;
 
     [Header("Ground Check Settings")]
     public Transform groundCheck;
     public float groundCheckRadius = 0.2f;
     public LayerMask groundLayer;
     private bool isGrounded;
+
+    [Header("Coyote Time Settings")]
+    public float coyoteTimeDuration = 0.1f;
+    private float coyoteTimeCounter;
+
+    [Header("Jump Buffering Settings")]
+    public float jumpBufferDuration = 0.1f;
+    private float jumpBufferCounter;
 
     [Header("Sprint Settings")]
     public float sprintSpeed = 8f;
@@ -33,25 +42,28 @@ public class PlayerMovement : MonoBehaviour
 
         playerInputActions.PlayerControls.Move.performed += ctx => moveInput = ctx.ReadValue<Vector2>();
         playerInputActions.PlayerControls.Move.canceled += ctx => moveInput = Vector2.zero;
+
         playerInputActions.PlayerControls.Jump.performed += JumpInputPerformed;
+        playerInputActions.PlayerControls.Jump.canceled += JumpInputCanceled;
+
         playerInputActions.PlayerControls.Sprint.performed += ctx => sprintKeyHeld = true;
         playerInputActions.PlayerControls.Sprint.canceled += ctx => sprintKeyHeld = false;
     }
 
     private void JumpInputPerformed(InputAction.CallbackContext context)
     {
-        if (isGrounded)
+        jumpBufferCounter = jumpBufferDuration; // Solo activamos el buffer
+    }
+
+    private void JumpInputCanceled(InputAction.CallbackContext context)
+    {
+        if (isJumping)
         {
-            bool isAttemptingSprintWhileMoving = sprintKeyHeld && (Mathf.Abs(moveInput.x) > 0.01f);
-            float currentAppliedJumpForce = isAttemptingSprintWhileMoving ? sprintJumpForce : jumpForce;
-
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, currentAppliedJumpForce);
-
-            if (anim != null)
+            if (rb.linearVelocity.y > 0)
             {
-                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator.
-                // anim.SetTrigger("Jump"); 
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * 0.5f);
             }
+            isJumping = false;
         }
     }
 
@@ -72,6 +84,40 @@ public class PlayerMovement : MonoBehaviour
             isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
         else
             isGrounded = false;
+
+        // Coyote Time Logic
+        if (isGrounded)
+            coyoteTimeCounter = coyoteTimeDuration;
+        else
+            coyoteTimeCounter -= Time.fixedDeltaTime;
+
+        // Jump Buffer Logic
+        if (jumpBufferCounter > 0f)
+            jumpBufferCounter -= Time.fixedDeltaTime;
+
+        // Resetear isJumping si ya no estamos subiendo
+        if (rb.linearVelocity.y <= 0)
+            isJumping = false;
+
+        // Ejecución del Salto (usando buffer, coyote time y ground check)
+        if (jumpBufferCounter > 0f && (isGrounded || coyoteTimeCounter > 0f))
+        {
+            isJumping = true;
+
+            bool isAttemptingSprintWhileMoving = sprintKeyHeld && (Mathf.Abs(moveInput.x) > 0.01f);
+            float currentAppliedJumpForce = isAttemptingSprintWhileMoving ? sprintJumpForce : jumpForce;
+
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, currentAppliedJumpForce);
+
+            jumpBufferCounter = 0f;
+            coyoteTimeCounter = 0f;
+
+            if (anim != null)
+            {
+                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator.
+                // anim.SetTrigger("Jump"); 
+            }
+        }
 
         // Determine movement states
         bool isCurrentlyMovingHorizontally = Mathf.Abs(moveInput.x) > 0.01f;
@@ -96,13 +142,9 @@ public class PlayerMovement : MonoBehaviour
         {
             float currentSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
             if (!isCurrentlyMovingHorizontally)
-            {
                 rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
-            }
             else
-            {
                 rb.linearVelocity = new Vector2(moveInput.x * currentSpeed, rb.linearVelocity.y);
-            }
         }
     }
 
