@@ -9,6 +9,7 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 moveInput;
     private Animator anim;
     private bool isFacingRight = true;
+    private bool isAttacking = false;
 
     [Header("Jump Settings")]
     public float jumpForce = 7f;
@@ -36,6 +37,9 @@ public class PlayerMovement : MonoBehaviour
     [Header("Air Control Settings")]
     public float airControlMultiplier = 0.8f;
 
+    [Header("Combat Settings")]
+    public GameObject attackHitbox;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -52,7 +56,7 @@ public class PlayerMovement : MonoBehaviour
         playerInputActions.PlayerControls.Sprint.performed += ctx => sprintKeyHeld = true;
         playerInputActions.PlayerControls.Sprint.canceled += ctx => sprintKeyHeld = false;
 
-        playerInputActions.PlayerControls.Attack.performed += AttackInputPerformed; // Nueva suscripción
+        playerInputActions.PlayerControls.Attack.performed += AttackInputPerformed;
     }
 
     private void JumpInputPerformed(InputAction.CallbackContext context)
@@ -72,12 +76,31 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void AttackInputPerformed(InputAction.CallbackContext context) // Nuevo método
+    private void AttackInputPerformed(InputAction.CallbackContext context)
     {
-        if (anim != null)
+        // Ahora solo se puede atacar si está en el suelo Y no está ya atacando
+        if (isGrounded && anim != null && !isAttacking)
         {
             anim.SetTrigger("Attack");
+            isAttacking = true;
         }
+    }
+
+    public void EnableAttackHitbox()
+    {
+        if (attackHitbox != null) attackHitbox.SetActive(true);
+    }
+
+    public void DisableAttackHitbox()
+    {
+        if (attackHitbox != null) attackHitbox.SetActive(false);
+    }
+
+    public void FinishAttack()
+    {
+        isAttacking = false;
+        // Mantengo el Debug.Log por si aún lo necesitas, puedes borrarlo si ya no.
+        Debug.Log("FinishAttack() llamado en frame: " + Time.frameCount + ". isAttacking ahora es: " + isAttacking);
     }
 
     void OnEnable()
@@ -123,7 +146,6 @@ public class PlayerMovement : MonoBehaviour
             coyoteTimeCounter = 0f;
             if (anim != null)
             {
-                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator para la animación de salto.
                 // anim.SetTrigger("Jump"); 
             }
         }
@@ -138,26 +160,35 @@ public class PlayerMovement : MonoBehaviour
         {
             anim.SetBool("IsWalking", isCurrentlyWalking);
             anim.SetBool("IsSprinting", isCurrentlySprinting);
-            // Comenta la siguiente línea si no tienes un parámetro Bool "IsGrounded" en tu Animator.
             // anim.SetBool("IsGrounded", isGrounded);
         }
 
-        // Sprite flipping
-        if (moveInput.x > 0.01f && !isFacingRight) Flip();
-        else if (moveInput.x < -0.01f && isFacingRight) Flip();
-
-        // Movement
-        if (rb != null)
+        if (!isAttacking)
         {
-            float currentBaseSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
-            float actualHorizontalSpeed = currentBaseSpeed;
+            // Sprite flipping
+            if (moveInput.x > 0.01f && !isFacingRight) Flip();
+            else if (moveInput.x < -0.01f && isFacingRight) Flip();
 
-            if (!isGrounded)
+            // Movement based on input
+            if (rb != null)
             {
-                actualHorizontalSpeed *= airControlMultiplier;
+                float currentSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
+                if (!isCurrentlyMovingHorizontally)
+                {
+                    rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(moveInput.x * currentSpeed, rb.linearVelocity.y);
+                }
             }
-
-            rb.linearVelocity = new Vector2(moveInput.x * actualHorizontalSpeed, rb.linearVelocity.y);
+        }
+        else
+        {
+            if (rb != null)
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            }
         }
     }
 
