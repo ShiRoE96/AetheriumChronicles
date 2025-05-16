@@ -33,6 +33,9 @@ public class PlayerMovement : MonoBehaviour
     public float sprintSpeed = 8f;
     private bool sprintKeyHeld = false;
 
+    [Header("Air Control Settings")]
+    public float airControlMultiplier = 0.8f;
+
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -52,7 +55,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void JumpInputPerformed(InputAction.CallbackContext context)
     {
-        jumpBufferCounter = jumpBufferDuration; // Solo activamos el buffer
+        jumpBufferCounter = jumpBufferDuration;
     }
 
     private void JumpInputCanceled(InputAction.CallbackContext context)
@@ -95,31 +98,26 @@ public class PlayerMovement : MonoBehaviour
         if (jumpBufferCounter > 0f)
             jumpBufferCounter -= Time.fixedDeltaTime;
 
-        // Resetear isJumping si ya no estamos subiendo
+        // Reset isJumping if no longer ascending
         if (rb.linearVelocity.y <= 0)
             isJumping = false;
 
-        // Ejecución del Salto (usando buffer, coyote time y ground check)
+        // Actual Jump Execution
         if (jumpBufferCounter > 0f && (isGrounded || coyoteTimeCounter > 0f))
         {
             isJumping = true;
-
             bool isAttemptingSprintWhileMoving = sprintKeyHeld && (Mathf.Abs(moveInput.x) > 0.01f);
             float currentAppliedJumpForce = isAttemptingSprintWhileMoving ? sprintJumpForce : jumpForce;
-
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, currentAppliedJumpForce);
-
             jumpBufferCounter = 0f;
             coyoteTimeCounter = 0f;
-
             if (anim != null)
             {
-                // Comenta la siguiente línea si no tienes un parámetro Trigger "Jump" en tu Animator.
                 // anim.SetTrigger("Jump"); 
             }
         }
 
-        // Determine movement states
+        // Determine movement states for animation
         bool isCurrentlyMovingHorizontally = Mathf.Abs(moveInput.x) > 0.01f;
         bool isCurrentlySprinting = sprintKeyHeld && isCurrentlyMovingHorizontally;
         bool isCurrentlyWalking = isCurrentlyMovingHorizontally && !isCurrentlySprinting;
@@ -129,7 +127,6 @@ public class PlayerMovement : MonoBehaviour
         {
             anim.SetBool("IsWalking", isCurrentlyWalking);
             anim.SetBool("IsSprinting", isCurrentlySprinting);
-            // Comenta la siguiente línea si no tienes un parámetro Bool "IsGrounded" en tu Animator.
             // anim.SetBool("IsGrounded", isGrounded);
         }
 
@@ -140,11 +137,15 @@ public class PlayerMovement : MonoBehaviour
         // Movement
         if (rb != null)
         {
-            float currentSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
-            if (!isCurrentlyMovingHorizontally)
-                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
-            else
-                rb.linearVelocity = new Vector2(moveInput.x * currentSpeed, rb.linearVelocity.y);
+            float currentBaseSpeed = isCurrentlySprinting ? sprintSpeed : moveSpeed;
+            float actualHorizontalSpeed = currentBaseSpeed;
+
+            if (!isGrounded)
+            {
+                actualHorizontalSpeed *= airControlMultiplier;
+            }
+
+            rb.linearVelocity = new Vector2(moveInput.x * actualHorizontalSpeed, rb.linearVelocity.y);
         }
     }
 
